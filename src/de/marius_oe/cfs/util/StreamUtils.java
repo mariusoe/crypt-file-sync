@@ -1,4 +1,4 @@
-package de.marius_oe.cfs.util.pipe;
+package de.marius_oe.cfs.util;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
