@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Util class for watching the file system for changes.
- * 
+ *
  * @author Marius
  *
  */
@@ -31,10 +31,10 @@ public final class FileWatcher implements Runnable {
 
 	private static final Logger logger = LoggerFactory.getLogger(FileWatcher.class);
 
+	private Thread executingThread;
+	private boolean isProcessing = true;
 	private final Map<WatchKey, Path> keyMap;
 	private final WatchService watcher;
-	private boolean isProcessing = true;
-	private Thread executingThread;
 
 	public FileWatcher() {
 		try {
@@ -42,55 +42,6 @@ public final class FileWatcher implements Runnable {
 			watcher = FileSystems.getDefault().newWatchService();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
-		}
-	}
-
-	/**
-	 * Register the given path to the watcher and notify if any files or
-	 * directories are modified.
-	 * 
-	 * @param path
-	 *            path to observe
-	 * @throws IOException
-	 */
-	public void register(Path path) throws IOException {
-		logger.debug("Register path {}", path);
-		WatchKey key = path.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
-		keyMap.put(key, path);
-	}
-
-	/**
-	 * Register the given path and all sub directories to the watcher and notify
-	 * if any files or directories are modified.
-	 * 
-	 * @param path
-	 *            directory to observe
-	 * @throws IOException
-	 */
-	public void registerAll(Path path) throws IOException {
-		Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-			@Override
-			public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs) throws IOException {
-				register(path);
-				return FileVisitResult.CONTINUE;
-			}
-		});
-	}
-
-	@Override
-	public void run() {
-		executingThread = Thread.currentThread();
-		processEvents();
-	}
-
-	/**
-	 * Stops the file watcher
-	 */
-	public void stopWatching() {
-		logger.debug("Stopping file watcher");
-		isProcessing = false;
-		if (executingThread != null) {
-			executingThread.interrupt();
 		}
 	}
 
@@ -147,6 +98,55 @@ public final class FileWatcher implements Runnable {
 				break;
 			}
 
+		}
+	}
+
+	/**
+	 * Register the given path to the watcher and notify if any files or
+	 * directories are modified.
+	 *
+	 * @param path
+	 *            path to observe
+	 * @throws IOException
+	 */
+	public void register(Path path) throws IOException {
+		logger.debug("Register path {}", path);
+		WatchKey key = path.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
+		keyMap.put(key, path);
+	}
+
+	/**
+	 * Register the given path and all sub directories to the watcher and notify
+	 * if any files or directories are modified.
+	 *
+	 * @param path
+	 *            directory to observe
+	 * @throws IOException
+	 */
+	public void registerAll(Path path) throws IOException {
+		Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+			@Override
+			public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs) throws IOException {
+				register(path);
+				return FileVisitResult.CONTINUE;
+			}
+		});
+	}
+
+	@Override
+	public void run() {
+		executingThread = Thread.currentThread();
+		processEvents();
+	}
+
+	/**
+	 * Stops the file watcher.
+	 */
+	public void stopWatching() {
+		logger.debug("Stopping file watcher");
+		isProcessing = false;
+		if (executingThread != null) {
+			executingThread.interrupt();
 		}
 	}
 }
