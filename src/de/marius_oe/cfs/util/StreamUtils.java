@@ -17,7 +17,7 @@ import java.util.zip.ZipOutputStream;
  * @author Marius
  *
  */
-public class StreamUtils {
+public final class StreamUtils {
 
 	private static ExecutorService threadPool;
 
@@ -26,6 +26,12 @@ public class StreamUtils {
 			threadPool = Executors.newCachedThreadPool();
 		}
 		return threadPool;
+	}
+
+	/**
+	 * Hidden constructor.
+	 */
+	private StreamUtils() {
 	}
 
 	/**
