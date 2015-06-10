@@ -54,15 +54,15 @@ public final class StreamUtils {
 	 *            the source stream
 	 * @param outStream
 	 *            the destination stream
-	 * @param doParallel
+	 * @param asynchronous
 	 *            Defines whether the copy process runs in a own thread
 	 */
-	public static void copy(InputStream inStream, OutputStream outStream, boolean doParallel) {
+	public static void copy(InputStream inStream, OutputStream outStream, boolean asynchronous) {
 		CopyWorker worker = new CopyWorker();
 		worker.inStream = inStream;
 		worker.outStream = outStream;
 
-		if (doParallel) {
+		if (asynchronous) {
 			getThreadPool().execute(worker);
 		} else {
 			worker.run();
@@ -70,7 +70,7 @@ public final class StreamUtils {
 	}
 
 	/**
-	 * Takes the given input stream and returns an @ InputStream} with the
+	 * Takes the given input stream and returns an {@link InputStream} with the
 	 * compressed data.
 	 * 
 	 * @param inStream
@@ -95,7 +95,7 @@ public final class StreamUtils {
 	}
 
 	/**
-	 * Writes writes the input stream into the output stream.
+	 * Writes the input stream into the output stream.
 	 * 
 	 * @param inStream
 	 *            the source stream

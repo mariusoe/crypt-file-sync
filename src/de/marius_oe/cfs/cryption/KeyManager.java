@@ -15,6 +15,9 @@ import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.marius_oe.cfs.configuration.Configuration;
+import static de.marius_oe.cfs.configuration.Configuration.Key.*;
+
 /**
  * Class to manage the keys used for decryption and encryption.
  *
@@ -23,12 +26,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class KeyManager {
 
-	private static final String ALGORITHM = "AES";
-
 	private static KeyManager instance;
-	private static final String IV_FILE = "iv.file";
-	private static final String KEY_FILE = "secret.key";
-	private static final int KEY_SIZE = 256;
 
 	private static final Logger logger = LoggerFactory.getLogger(KeyManager.class);
 
@@ -57,13 +55,13 @@ public final class KeyManager {
 	}
 
 	private SecretKey generateKey() {
-		logger.debug("Generating secret key with algorithm {} and key-size {}.", ALGORITHM, KEY_SIZE);
+		logger.debug("Generating secret key with algorithm {} and key-size {}.", Configuration.get(Algorithm), Configuration.getInt(KeySize));
 		try {
-			KeyGenerator keyGen = KeyGenerator.getInstance(ALGORITHM);
-			keyGen.init(KEY_SIZE);
+			KeyGenerator keyGen = KeyGenerator.getInstance(Configuration.get(Algorithm));
+			keyGen.init(Configuration.getInt(KeySize));
 			return keyGen.generateKey();
 		} catch (NoSuchAlgorithmException e) {
-			logger.error("Algorithm {} is not supported.", ALGORITHM);
+			logger.error("Algorithm {} is not supported.", Configuration.get(Algorithm));
 			throw new RuntimeException(e);
 		}
 	}
@@ -100,7 +98,7 @@ public final class KeyManager {
 		try {
 			byte[] tempArray = new byte[1024];
 
-			FileInputStream fis = new FileInputStream(IV_FILE);
+			FileInputStream fis = new FileInputStream(Configuration.get(IvFile));
 			int bytesRead = fis.read(tempArray);
 			fis.close();
 
@@ -108,9 +106,9 @@ public final class KeyManager {
 
 			logger.debug("IV has been loaded.");
 		} catch (FileNotFoundException e) {
-			logger.info("IV-file {} does not exists.", IV_FILE);
+			logger.info("IV-file {} does not exists.", Configuration.get(IvFile));
 		} catch (IOException e) {
-			logger.error("IV-file {} cannot be read.", IV_FILE);
+			logger.error("IV-file {} cannot be read.", Configuration.get(IvFile));
 			throw new RuntimeException(e);
 		}
 	}
@@ -122,21 +120,21 @@ public final class KeyManager {
 	private void loadKey() {
 		logger.debug("Loading secret key.");
 		try {
-			byte[] keyBytes = new byte[KEY_SIZE / 8];
+			byte[] keyBytes = new byte[Configuration.getInt(KeySize) / 8];
 
-			FileInputStream fis = new FileInputStream(KEY_FILE);
+			FileInputStream fis = new FileInputStream(Configuration.get(SecretKeyFile));
 			fis.read(keyBytes);
 			fis.close();
 
-			secretKey = new SecretKeySpec(keyBytes, 0, keyBytes.length, ALGORITHM);
+			secretKey = new SecretKeySpec(keyBytes, 0, keyBytes.length, Configuration.get(Algorithm));
 
 			logger.debug("Key has been loaded.");
 		} catch (FileNotFoundException e) {
-			logger.info("Key-file {} does not exists. A new key will be generated.", KEY_FILE);
+			logger.info("Key-file {} does not exists. A new key will be generated.", Configuration.get(SecretKeyFile));
 			secretKey = generateKey();
 			storeSecretKey();
 		} catch (IOException e) {
-			logger.error("Key-file {} cannot be read.", KEY_FILE);
+			logger.error("Key-file {} cannot be read.", Configuration.get(SecretKeyFile));
 			throw new RuntimeException(e);
 		}
 	}
@@ -150,9 +148,9 @@ public final class KeyManager {
 	public void storeIV(byte[] iv) {
 		initializationVector = new IvParameterSpec(iv);
 
-		logger.info("Writing initializationVector in file {}", IV_FILE);
+		logger.info("Writing initializationVector in file {}", Configuration.get(IvFile));
 		try {
-			FileOutputStream fos = new FileOutputStream(IV_FILE, false);
+			FileOutputStream fos = new FileOutputStream(Configuration.get(IvFile), false);
 			fos.write(initializationVector.getIV());
 			fos.flush();
 			fos.close();
@@ -166,9 +164,9 @@ public final class KeyManager {
 	 * Stores the current secretKey in the file system.
 	 */
 	private void storeSecretKey() {
-		logger.info("Writing secretKey in file {}", KEY_FILE);
+		logger.info("Writing secretKey in file {}", Configuration.get(SecretKeyFile));
 		try {
-			FileOutputStream fos = new FileOutputStream(KEY_FILE, false);
+			FileOutputStream fos = new FileOutputStream(Configuration.get(SecretKeyFile), false);
 			fos.write(secretKey.getEncoded());
 			fos.flush();
 			fos.close();
