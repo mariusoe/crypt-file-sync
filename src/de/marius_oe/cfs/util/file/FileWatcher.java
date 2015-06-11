@@ -1,4 +1,4 @@
-package de.marius_oe.cfs.util;
+package de.marius_oe.cfs.util.file;
 
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_DELETE;
@@ -15,7 +15,9 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -35,14 +37,43 @@ public final class FileWatcher implements Runnable {
 	private boolean isProcessing = true;
 	private final Map<WatchKey, Path> keyMap;
 	private final WatchService watcher;
+	private List<IFileListener> fileListener;
 
+	/**
+	 * Constructor.
+	 */
 	public FileWatcher() {
 		try {
 			keyMap = new HashMap<>();
 			watcher = FileSystems.getDefault().newWatchService();
+			fileListener = new ArrayList<>();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	/**
+	 * Registers the given {@link IFileListener} to this {@link FileWatcher}.
+	 * 
+	 * @param listener
+	 *            listener that will be registered
+	 * @return true if the listener was succsesfully added
+	 */
+	public boolean registerFileListener(IFileListener listener) {
+		logger.debug("Registering fileListener");
+		return fileListener.add(listener);
+	}
+
+	/**
+	 * Unregisters the given {@link IFileListener}.
+	 * 
+	 * @param listener
+	 *            listener that will be unregistered
+	 * @return true if the listener was succsefully removed
+	 */
+	public boolean unregisterFileListener(IFileListener listener) {
+		logger.debug("Unregister fileListener");
+		return fileListener.remove(listener);
 	}
 
 	/**
@@ -80,13 +111,19 @@ public final class FileWatcher implements Runnable {
 				WatchEvent<Path> ev = (WatchEvent<Path>) event;
 				Path file = ev.context();
 
+				// Notify all listeners
 				if (kind == ENTRY_CREATE) {
-					logger.debug("Created {} {}", currentPath, file);
-					// TODO register children
+					logger.debug("Created {} {} - Exists: {}", currentPath, file, file.toFile().exists());
+					fileListener.stream().forEach(listener -> listener.onCreate(file));
+				} else if (kind == ENTRY_DELETE) {
+					logger.debug("Delete {} {}", currentPath, file);
+					fileListener.stream().forEach(listener -> listener.onDelete(file));
+				} else if (kind == ENTRY_MODIFY) {
+					logger.debug("Modified {} {}", currentPath, file);
+					fileListener.stream().forEach(listener -> listener.onModify(file));
+				} else {
+					logger.debug("Event: {} - {} {}", kind.name(), currentPath, file);
 				}
-
-				// TODO notify
-				logger.debug("Notify {} {}", currentPath, file);
 			}
 
 			// Reset the key -- this step is critical if you want to

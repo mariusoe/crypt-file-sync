@@ -1,9 +1,13 @@
 package de.marius_oe.cfs.configuration;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Properties;
 
 import org.slf4j.Logger;
@@ -23,7 +27,7 @@ public final class Configuration implements Serializable {
 	 * Enumeration which represent the confiuration entries.
 	 */
 	public enum Key {
-		Algorithm("algorithm"), KeySize("key_size"), IvFile("initial_vector_file"), SecretKeyFile("key_file");
+		Algorithm("algorithm"), KeySize("key_size"), IvFile("initial_vector_file"), SecretKeyFile("key_file"), SyncFolders("sync_folders");
 
 		/*
 		 * The key that is used in the config-file
@@ -47,7 +51,7 @@ public final class Configuration implements Serializable {
 		}
 	}
 
-	private static final String defaultConfigurationFile = "res/config.ini";
+	private static final String defaultConfigurationFile = "res/config.properties";
 
 	private static final Logger logger = LoggerFactory.getLogger(Configuration.class);
 
@@ -94,5 +98,16 @@ public final class Configuration implements Serializable {
 			load();
 		}
 		return Integer.parseInt(properties.getProperty(key.getKey()));
+	}
+
+	/**
+	 * Returns a {@link Path} array containing all folders that have to be
+	 * synchronized.
+	 * 
+	 * @return {@link Path} array containing folders to synchronize
+	 */
+	public static Path[] getSynchronizedFolders() {
+		String[] syncFolders = get(Key.SyncFolders).split(";");
+		return Arrays.stream(syncFolders).map(folder -> Paths.get(folder)).toArray(length -> new Path[length]);
 	}
 }
