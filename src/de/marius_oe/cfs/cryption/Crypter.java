@@ -24,12 +24,10 @@ public class Crypter {
 	private static final Logger logger = LoggerFactory.getLogger(Crypter.class);
 
 	/**
-	 * Returns the {@link Cipher} for the encryption and decryption process.
-	 *
-	 * @param mode
-	 *            {@link Cipher.DECRYPT_MODE} or {@link Cipher.ENCRYPT_MODE}
-	 * @return {@link Cipher} object
+	 * Constructor.
 	 */
+	private Crypter() {
+	}
 
 	/**
 	 * Returns the {@link Cipher} for the encryption and decryption process.
@@ -78,7 +76,7 @@ public class Crypter {
 	 * @param compressStream
 	 *            whether the stream was compressed before encryption
 	 */
-	public void decrypt(InputStream inStream, OutputStream destinationStream, boolean compressStream) {
+	public static void decrypt(InputStream inStream, OutputStream destinationStream, boolean compressStream) {
 		logger.debug("decrypting inputstream - compressed: {}", compressStream);
 
 		try {
@@ -126,7 +124,7 @@ public class Crypter {
 	 * @param compressStream
 	 *            whether the data should be compressed before encryption
 	 */
-	public void encrypt(InputStream inStream, OutputStream destinationStream, boolean compressStream) {
+	public static void encrypt(InputStream inStream, OutputStream destinationStream, boolean compressStream) {
 		logger.debug("encrypting inputstream - compressed: {}", compressStream);
 
 		InputStream tempInputStream;
