@@ -1,6 +1,5 @@
 package de.marius_oe.cfs.configuration;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;

@@ -1,22 +1,23 @@
 package de.marius_oe.cfs.cryption;
 
+import static de.marius_oe.cfs.configuration.Configuration.Key.Algorithm;
+import static de.marius_oe.cfs.configuration.Configuration.Key.KeySize;
+import static de.marius_oe.cfs.configuration.Configuration.Key.SecretKeyFile;
+
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.marius_oe.cfs.configuration.Configuration;
-import static de.marius_oe.cfs.configuration.Configuration.Key.*;
 
 /**
  * Class to manage the keys used for decryption and encryption.
@@ -42,9 +43,6 @@ public final class KeyManager {
 		return instance;
 	}
 
-	/** Currently loaded initialization vector. */
-	private IvParameterSpec initializationVector;
-
 	/** Currently loaded secret key. */
 	private SecretKey secretKey;
 
@@ -67,18 +65,6 @@ public final class KeyManager {
 	}
 
 	/**
-	 * Returns the stored initialization Vector.
-	 *
-	 * @return byte[] containing the IV
-	 */
-	public IvParameterSpec getIV() {
-		if (initializationVector == null) {
-			loadIV();
-		}
-		return initializationVector;
-	}
-
-	/**
 	 * Returns the key for de- and encryption.
 	 *
 	 * @return the secret key
@@ -88,29 +74,6 @@ public final class KeyManager {
 			loadKey();
 		}
 		return secretKey;
-	}
-
-	/**
-	 * Load the initialization vector from file.
-	 */
-	private void loadIV() {
-		logger.debug("Loading initialization vector.");
-		try {
-			byte[] tempArray = new byte[1024];
-
-			FileInputStream fis = new FileInputStream(Configuration.get(IvFile));
-			int bytesRead = fis.read(tempArray);
-			fis.close();
-
-			initializationVector = new IvParameterSpec(Arrays.copyOf(tempArray, bytesRead));
-
-			logger.debug("IV has been loaded.");
-		} catch (FileNotFoundException e) {
-			logger.info("IV-file {} does not exists.", Configuration.get(IvFile));
-		} catch (IOException e) {
-			logger.error("IV-file {} cannot be read.", Configuration.get(IvFile));
-			throw new RuntimeException(e);
-		}
 	}
 
 	/**
@@ -135,27 +98,6 @@ public final class KeyManager {
 			storeSecretKey();
 		} catch (IOException e) {
 			logger.error("Key-file {} cannot be read.", Configuration.get(SecretKeyFile));
-			throw new RuntimeException(e);
-		}
-	}
-
-	/**
-	 * Stores the given initialization vector.
-	 *
-	 * @param iv
-	 *            initialization vector to store
-	 */
-	public void storeIV(byte[] iv) {
-		initializationVector = new IvParameterSpec(iv);
-
-		logger.info("Writing initializationVector in file {}", Configuration.get(IvFile));
-		try {
-			FileOutputStream fos = new FileOutputStream(Configuration.get(IvFile), false);
-			fos.write(initializationVector.getIV());
-			fos.flush();
-			fos.close();
-		} catch (IOException e) {
-			logger.info("Cannot write initializationVector in file. Reason: {}", e.getLocalizedMessage());
 			throw new RuntimeException(e);
 		}
 	}

@@ -1,10 +1,8 @@
 package de.marius_oe.cfs.cryption;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -13,7 +11,9 @@ import java.util.zip.ZipInputStream;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
 
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,14 +30,25 @@ public class Crypter {
 	 *            {@link Cipher.DECRYPT_MODE} or {@link Cipher.ENCRYPT_MODE}
 	 * @return {@link Cipher} object
 	 */
-	private static Cipher getCipher(int mode) {
+
+	/**
+	 * Returns the {@link Cipher} for the encryption and decryption process.
+	 * 
+	 * @param mode
+	 *            {@link Cipher.DECRYPT_MODE} or {@link Cipher.ENCRYPT_MODE}
+	 * @param iv
+	 *            the initial vector which should be used in the cipher. if the
+	 *            iv is <code>null</code>, a new iv will be generated.
+	 * @return {@link Cipher} object
+	 */
+	private static Cipher getCipher(int mode, byte[] iv) {
 		try {
 			Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-			if (KeyManager.instance().getIV() == null) {
+			if (iv == null) {
 				cipher.init(mode, KeyManager.instance().getKey());
-				KeyManager.instance().storeIV(cipher.getIV());
 			} else {
-				cipher.init(mode, KeyManager.instance().getKey(), KeyManager.instance().getIV());
+				IvParameterSpec parameterSpec = new IvParameterSpec(iv);
+				cipher.init(mode, KeyManager.instance().getKey(), parameterSpec);
 			}
 			return cipher;
 		} catch (InvalidKeyException e) {
@@ -61,37 +72,45 @@ public class Crypter {
 	 * has been compressed and is uncompressed after decryption.
 	 *
 	 * @param inStream
-	 *            source stream with encrypted data
-	 * @param destinationFile
-	 *            destination file of decrypted data
+	 *            source stream with encrypted data and iv at the beginning
+	 * @param destinationStream
+	 *            stream for the decrypted data
 	 * @param compressStream
 	 *            whether the stream was compressed before encryption
 	 */
-	public void decrypt(InputStream inStream, File destinationFile, boolean compressStream) {
-		logger.debug("Decrypt InputStream - Destination file: {} - Is compress: {}", destinationFile.getAbsoluteFile(), compressStream);
-
-		logger.debug("Decrypt InputStream.");
-		inStream = new CipherInputStream(inStream, getCipher(Cipher.DECRYPT_MODE));
-
-		if (compressStream) {
-			logger.debug("Decompress InputStream.");
-
-			try {
-				inStream = new ZipInputStream(inStream);
-				((ZipInputStream) inStream).getNextEntry();
-			} catch (IOException e) {
-				logger.debug("Error occured during unzipping - Reason: {}", e.getLocalizedMessage());
-				throw new RuntimeException(e);
-			}
-		}
+	public void decrypt(InputStream inStream, OutputStream destinationStream, boolean compressStream) {
+		logger.debug("decrypting inputstream - compressed: {}", compressStream);
 
 		try {
-			BufferedOutputStream foStream = new BufferedOutputStream(new FileOutputStream(destinationFile));
-			StreamUtils.copy(inStream, foStream, false);
-			foStream.close();
-			logger.debug("Decryption done - Data stored in file: {}", destinationFile.getAbsoluteFile());
+			// reading iv of stream
+			int ivLength = inStream.read();
+			byte[] iv = new byte[ivLength];
+			inStream.read(iv);
+
+			logger.debug("Decrypt InputStream.");
+			inStream = new CipherInputStream(inStream, getCipher(Cipher.DECRYPT_MODE, iv));
+
+			if (compressStream) {
+				logger.debug("Decompress InputStream.");
+
+				try {
+					inStream = new ZipInputStream(inStream);
+					((ZipInputStream) inStream).getNextEntry();
+				} catch (IOException e) {
+					logger.debug("Error occured during unzipping - Reason: {}", e.getLocalizedMessage());
+					throw new RuntimeException(e);
+				}
+			}
+
+			// copy stream
+			int bytesCopied = IOUtils.copy(inStream, destinationStream);
+
+			logger.debug("decryption done. copied {} decrypted bytes to the outputstream", bytesCopied);
+
+			inStream.close();
+			destinationStream.close();
 		} catch (IOException e) {
-			logger.error("Cannot store decrypted data in file {} - Reason: {}", destinationFile.getAbsoluteFile(), e.getLocalizedMessage());
+			logger.error("Decryption failed - Reason: {}", e.getLocalizedMessage());
 			throw new RuntimeException(e);
 		}
 	}
@@ -102,29 +121,41 @@ public class Crypter {
 	 *
 	 * @param inStream
 	 *            plain text stream
-	 * @param destinationFile
-	 *            destination file for the encrypted data
+	 * @param destinationStream
+	 *            stream for the encrypted data
 	 * @param compressStream
 	 *            whether the data should be compressed before encryption
 	 */
-	public void encrypt(InputStream inStream, File destinationFile, boolean compressStream) {
-		logger.debug("Encrypt InputStream - Destination file: {} - Compress: {}", destinationFile.getAbsoluteFile(), compressStream);
+	public void encrypt(InputStream inStream, OutputStream destinationStream, boolean compressStream) {
+		logger.debug("encrypting inputstream - compressed: {}", compressStream);
+
+		InputStream tempInputStream;
 
 		if (compressStream) {
 			logger.debug("Compress InputStream.");
-			inStream = StreamUtils.zipStream(inStream);
+			tempInputStream = StreamUtils.zipStream(inStream);
+		} else {
+			tempInputStream = inStream;
 		}
 
+		Cipher cipher = getCipher(Cipher.ENCRYPT_MODE, null);
+
 		logger.debug("Encrypt InputStream.");
-		inStream = new CipherInputStream(inStream, getCipher(Cipher.ENCRYPT_MODE));
+		tempInputStream = new CipherInputStream(tempInputStream, cipher);
 
 		try {
-			BufferedOutputStream foStream = new BufferedOutputStream(new FileOutputStream(destinationFile));
-			StreamUtils.copy(inStream, foStream, false);
-			foStream.close();
-			logger.debug("Encryption done - Data stored in file: {}", destinationFile.getAbsoluteFile());
+			// write iv to the beginning of the stream
+			destinationStream.write((byte) cipher.getIV().length);
+			destinationStream.write(cipher.getIV());
+
+			int bytesCopied = IOUtils.copy(tempInputStream, destinationStream);
+
+			logger.debug("encryption done. copied {} encrypted bytes to the outputstream", bytesCopied);
+
+			tempInputStream.close();
+			destinationStream.close();
 		} catch (IOException e) {
-			logger.error("Cannot store encrypted data in file {} - Reason: {}", destinationFile.getAbsoluteFile(), e.getLocalizedMessage());
+			logger.error("Encryption failed - Reason: {}", e.getLocalizedMessage());
 			throw new RuntimeException(e);
 		}
 	}
