@@ -74,6 +74,29 @@
 					<threadCount>1</threadCount>
 				</configuration>
 			</plugin>
+
+			<plugin>
+				<groupId>com.mycila</groupId>
+				<artifactId>license-maven-plugin</artifactId>
+				<version>2.3</version>
+				<configuration>
+					<header>LICENSE.txt</header>
+					<properties>
+						<owner>Marius Oehler</owner>
+						<email>ich@marius-oe.de</email>
+					</properties>
+					<includes>
+						<include>**/**.java</include>
+					</includes>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 </project>
